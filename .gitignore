@@ -1,0 +1,39 @@
+dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+testing and bundling
+/dist
+/build
+.vite
+
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+OS and editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
+*.bak
+*~
+*.log
+
+Environment variables
+.env
+.env.local
+.env.*.local
+
+MSW Worker (We initialized it in public/, so we ignore the compiled file)
+/public/mockServiceWorker.js
+
+Custom Dexie/localforage artifacts (if any are created outside browser storage)
+Generally, local storage is browser-internal and doesn't create file artifacts,
+but if you were using a Node database connection, you would ignore those files here.
+Vite specific
+/temp
