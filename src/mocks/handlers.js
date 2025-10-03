@@ -1,5 +1,5 @@
 // src/mocks/handlers.js
-import { rest } from 'msw';
+import { http } from 'msw';
 import { db } from '../db';
 import { liveQuery } from 'dexie'; // Useful for real-time Dexie queries (not used in MSW, but handy)
 
@@ -21,7 +21,7 @@ export const handlers = [
   // --- JOB HANDLERS ---
   
   // GET /jobs (List/Pagination/Filtering) [cite: 29]
-  rest.get('/api/jobs', async (req, res, ctx) => {
+  http.get('/api/jobs', async (req, res, ctx) => {
     await withLatency(ctx);
 
     const titleSearch = req.url.searchParams.get('title') || '';
@@ -53,7 +53,7 @@ export const handlers = [
   }),
   
   // POST /jobs (Create job) [cite: 30]
-  rest.post('/api/jobs', async (req, res, ctx) => {
+  http.post('/api/jobs', async (req, res, ctx) => {
     await withLatency(ctx);
 
     if (shouldFail()) {
@@ -80,7 +80,7 @@ export const handlers = [
   }),
   
   // PATCH /jobs/:id (Update job) [cite: 31]
-  rest.patch('/api/jobs/:id', async (req, res, ctx) => {
+  http.patch('/api/jobs/:id', async (req, res, ctx) => {
     await withLatency(ctx);
 
     if (shouldFail()) {
@@ -98,7 +98,7 @@ export const handlers = [
   }),
   
   // PATCH /jobs/:id/reorder (Reorder job) [cite: 32]
-  rest.patch('/api/jobs/:id/reorder', async (req, res, ctx) => {
+  http.patch('/api/jobs/:id/reorder', async (req, res, ctx) => {
     await withLatency(ctx);
 
     // Occasionally return 500 to test rollback [cite: 32]
@@ -137,7 +137,7 @@ export const handlers = [
   // --- CANDIDATE HANDLERS (Simplified) ---
   
   // GET /candidates (List/Pagination/Filtering) [cite: 33]
-  rest.get('/api/candidates', async (req, res, ctx) => {
+  http.get('/api/candidates', async (req, res, ctx) => {
     await withLatency(ctx);
 
     const nameEmailSearch = req.url.searchParams.get('search') || '';
@@ -172,7 +172,7 @@ export const handlers = [
   }),
   
   // PATCH /candidates/:id (Stage transitions) [cite: 36]
-  rest.patch('/api/candidates/:id', async (req, res, ctx) => {
+  http.patch('/api/candidates/:id', async (req, res, ctx) => {
     await withLatency(ctx);
 
     if (shouldFail()) {
@@ -200,7 +200,7 @@ export const handlers = [
   }),
 
   // GET /candidates/:id/timeline [cite: 37]
-  rest.get('/api/candidates/:id/timeline', async (req, res, ctx) => {
+  http.get('/api/candidates/:id/timeline', async (req, res, ctx) => {
     await withLatency(ctx);
     const { id } = req.params;
     const numId = parseInt(id);
