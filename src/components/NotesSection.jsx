@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 
 // Utility function to render mentions as styled spans
 const renderMentionText = (text, members) => {
