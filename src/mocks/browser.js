@@ -16,6 +16,9 @@ export async function startWorker() {
     await seedDatabase();
 
     await worker.start({ 
+       serviceWorker: {
+        url: '/mockServiceWorker.js', 
+    },
       onUnhandledRequest: 'bypass', // Ignore unhandled requests (e.g., Vite asset requests)
     });
     console.log('Mock Service Worker is ready to intercept requests at /api/*.');
