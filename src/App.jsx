@@ -62,6 +62,7 @@ function App() {
       {/* Layout wraps all main application content */}
       <Route path="/" element={<Layout />}>
         
+        
         {/* Dashboard/Home Route (index) */}
         <Route index element={
           <div className="p-8 bg-white rounded-xl shadow-md border-t-4 border-indigo-500">
