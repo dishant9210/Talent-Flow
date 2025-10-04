@@ -8,15 +8,14 @@ import { useStageUpdate } from '../hooks/useStageUpdate';
 // --- Component Imports (Assumed) ---
 import CandidateTimeline from '../components/CandidateTimeline';
 import NotesSection from '../components/NotesSection';
-import KanbanBoard from '../components/KanbanBoard'; 
+import KanbanBoard from '../components/Board';
 
-// --- Mock Data (Assumed) ---
 const mockTeamMembers = ['John Doe', 'Jane Smith', 'Team Lead'];
 const stages = ['applied', 'screen', 'tech', 'offer', 'hired', 'rejected'];
 // ------------------------------------
 
 function CandidateProfile() {
-    const { candidateId: urlId } = useParams(); // Get the string ID from the route
+    const { jobId: urlId } = useParams(); // Get the string ID from the route
     console.log('CandidateProfile: urlId =', urlId);
 
     // 🛑 FIX 1: Safely parse the ID and ensure it's a valid number > 0.

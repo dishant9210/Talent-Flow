@@ -1,8 +1,8 @@
-// src/components/KanbanBoard.jsx
+// src/components/Board.jsx
 import React from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'; 
 
-const KanbanBoard = ({ candidate, stages, onMove }) => {
+const Board = ({ candidate, stages, onMove }) => {
     // Determine the unique ID for the single draggable card
     const cardId = `card-${candidate.id}`;
 
@@ -69,4 +69,4 @@ const KanbanBoard = ({ candidate, stages, onMove }) => {
     );
 };
 
-export default KanbanBoard;
+export default Board;
