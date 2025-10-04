@@ -9,25 +9,36 @@ import { seedDatabase } from './mocks/seed.js';
 let hasSeeded = false;
 
 
-async function prepare() {
-    // 1. Start MSW worker (if not already running)
-    // if (process.env.NODE_ENV === 'development') {
-    //     await worker.start();
-    // }
+// async function prepare() {
+//     // 1. Start MSW worker (if not already running)
+//     // if (process.env.NODE_ENV === 'development') {
+//     //     await worker.start();
+//     // }
       
-    // 2. 🛑 CONDITIONAL SEEDING: Only run if the flag is false
-    if (!hasSeeded) {
-        console.log("Database preparing to seed...");
-        await seedDatabase();
-        hasSeeded = true;
-        console.log("Database Seeding complete for this session.");
-    }
+async function prepareApp() {
+  if (import.meta.env.DEV) {
+    // Note: Adjust the paths below if your files are named differently
+    const { worker } = await import("./mocks/browser.js"); 
+    const { seedDatabase } = await import('./mocks/seed.js');
+    
+    // 1. Seed the database
+    await seedDatabase(); 
+    
+    // 2. Start the MSW worker (using relative path for best deployment compatibility)
+    return worker.start({ 
+        serviceWorker: {
+             url: '/mockServiceWorker.js', // Ensures correct path on Vercel
+        },
+        onUnhandledRequest: "bypass" 
+    });
+  }
+  return Promise.resolve();
 }
 
 
 import { worker } from './mocks/browser';
 
-prepare().then(() => {
+prepareApp().then(() => {
   // ... ReactDOM.createRoot(...).render(...)
   // Start the worker, then render the app
   worker.start({ onUnhandledRequest: 'bypass' }).then(() => {
