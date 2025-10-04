@@ -1,94 +1,120 @@
-// src/pages/CandidateProfile.jsx (Conceptual Implementation)
-import React, { useState } from 'react';
+// src/pages/CandidateProfile.jsx (CRITICAL UPDATE)
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { useFetch } from '../hooks/useFetch';
+import { useFetch } from '../hooks/useFetch'; 
+import { useStageUpdate } from '../hooks/useStageUpdate'; 
 
-const MOCK_USERS = ['@alice', '@bob', '@charlie']; // Local list for mentions 
+// --- Component Imports (Assumed) ---
+import CandidateTimeline from '../components/CandidateTimeline';
+import NotesSection from '../components/NotesSection';
+import KanbanBoard from '../components/KanbanBoard'; 
 
-// --- Hook to get single candidate data (requires a GET /candidates/:id handler) ---
-function useCandidateData(id) {
-    const candidateData = useFetch(`/api/candidates/${id}`);
-    const timelineData = useFetch(`/api/candidates/${id}/timeline`);
-    return {
-        candidate: candidateData.data,
-        timeline: timelineData.data,
-        isLoading: candidateData.isLoading || timelineData.isLoading,
-        error: candidateData.error || timelineData.error,
-        refetch: () => { candidateData.refetch(); timelineData.refetch(); }
-    };
-}
-
-// --- Component to render notes and mentions ---
-const NoteRenderer = ({ content }) => {
-    // Regex to find @mentions
-    const parts = content.split(/(@[a-zA-Z0-9]+)/g);
-
-    return (
-        <p>
-            {parts.map((part, index) => {
-                if (part.startsWith('@')) {
-                    // Just render the mention (no suggestions needed here) 
-                    return <span key={index} style={{ color: 'blue', fontWeight: 'bold' }}>{part}</span>;
-                }
-                return part;
-            })}
-        </p>
-    );
-};
+// --- Mock Data (Assumed) ---
+const mockTeamMembers = ['John Doe', 'Jane Smith', 'Team Lead'];
+const stages = ['applied', 'screen', 'tech', 'offer', 'hired', 'rejected'];
+// ------------------------------------
 
 function CandidateProfile() {
-    const { id } = useParams();
-    const { candidate, timeline, isLoading, error, refetch } = useCandidateData(id);
-    const [newNote, setNewNote] = useState('');
+    const { candidateId: urlId } = useParams(); // Get the string ID from the route
+    console.log('CandidateProfile: urlId =', urlId);
 
-    // NOTE: In a full implementation, this should trigger a PATCH /candidates/:id 
-    // to add the note, and it should be stored in Dexie/timeline.
-    const handleAddNote = () => {
-        if (!newNote.trim()) return;
+    // 🛑 FIX 1: Safely parse the ID and ensure it's a valid number > 0.
+    // If invalid, candidateId will be null, preventing the fetch calls below.
+    const candidateId = useMemo(() => {
+        const numId = parseInt(urlId);
+        return (numId > 0 && !isNaN(numId)) ? numId : null;
+    }, [urlId]);
 
-        // Simulate logging the note (in a real app, this updates the DB)
-        // This log should be added to the db.timeline store with type: 'note'
-        console.log(`Adding note for Candidate ${id}: ${newNote}`); 
-        setNewNote('');
-        refetch(); 
+    // 🛑 FIX 2: Only construct the URL if candidateId is valid. 
+    // This prevents the fetch calls with '/api/candidates/NaN'.
+    const candidateUrl = candidateId ? `/api/candidates/${candidateId}` : null;
+    const timelineUrl = candidateId ? `/api/candidates/${candidateId}/timeline` : null;
+
+    // 1. Fetch Candidate Data
+    const { 
+        data: candidate, 
+        isLoading: isCandidateLoading, 
+        error: candidateError, 
+        refetch: refetchCandidate 
+    } = useFetch(candidateUrl); // URL is null if ID is invalid
+    
+    // 2. Fetch Timeline Data
+    const { 
+        data: timeline, 
+        isLoading: isTimelineLoading, 
+        error: timelineError, 
+        refetch: refetchTimeline 
+    } = useFetch(timelineUrl); // URL is null if ID is invalid
+
+    // 3. Mutation Hook for Stage Change
+    const { updateStage, isUpdating, updateError } = useStageUpdate();
+
+    // Memoize the initial notes
+    const initialNotes = useMemo(() => candidate?.notes || [], [candidate]);
+
+    // Handle Stage Change (Kanban Drag-and-Drop)
+    const handleStageChange = async (newStage) => {
+        if (!candidateId) return; // Guard against null ID
+
+        const success = await updateStage(candidateId, newStage);
+        
+        if (success) {
+            refetchCandidate();
+            refetchTimeline();
+        } else {
+            alert(`Failed to update stage: ${updateError}`);
+            refetchCandidate(); 
+        }
     };
+    
+    // --- Loading and Error States ---
+    if (!candidateId) {
+        return <div className="p-8 text-center text-red-600">Invalid Candidate ID in URL.</div>;
+    }
+    
+    if (isCandidateLoading || isTimelineLoading) {
+        return <div className="p-8 text-center text-indigo-600">Loading candidate profile...</div>;
+    }
 
-    if (isLoading) return <div>Loading Candidate Profile...</div>;
-    if (error || !candidate) return <div>Candidate not found or error loading data.</div>;
+    if (candidateError) {
+        return <div className="p-8 text-center text-red-600">Error loading candidate: {candidateError}</div>;
+    }
+    
+    if (!candidate || !candidate.id) {
+        return <div className="p-8 text-center text-gray-500">Candidate not found.</div>;
+    }
 
     return (
-        <div>
-            <h1>{candidate.name} Profile</h1>
-            <p>Email: {candidate.email} | Current Stage: <strong>{candidate.stage}</strong></p>
+        <div className="p-8">
+            <h1 className="text-4xl font-extrabold text-gray-800 mb-2">{candidate.name}</h1>
+            <p className="text-lg text-indigo-600 mb-6">Current Stage: {candidate.stage.toUpperCase()}</p>
+            
+            {isUpdating && <div className="text-yellow-600 mb-4">Updating stage...</div>}
+            {updateError && <div className="text-red-600 mb-4">Update Error: {updateError}</div>}
 
-            <div style={{ display: 'flex', marginTop: 20 }}>
-                {/* Timeline Panel */}
-                <div style={{ flex: 1, borderRight: '1px solid #ccc', paddingRight: 20 }}>
-                    <h2>Status Timeline</h2>
-                    <ul style={{ listStyle: 'none', padding: 0 }}>
-                        {timeline.map((event, index) => (
-                            <li key={index} style={{ marginBottom: 10 }}>
-                                <strong>{new Date(event.timestamp).toLocaleDateString()}</strong>: {event.details}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
 
-                {/* Notes Panel */}
-                <div style={{ flex: 1, paddingLeft: 20 }}>
-                    <h2>Notes</h2>
-                    {/* Existing Notes (assuming they are part of the timeline or a separate API) */}
-                    <NoteRenderer content="Reviewed their skills. Needs follow-up with @bob on the tech screen. " />
-                    
-                    {/* Add New Note Input */}
-                    <textarea 
-                        value={newNote} 
-                        onChange={(e) => setNewNote(e.target.value)} 
-                        placeholder={`Add a note (e.g., "Good interview, contact @alice")`} 
-                        rows="3" 
-                        style={{ width: '100%', marginTop: 10 }}
+            <h2 className="text-2xl font-semibold mt-8 mb-4">Stage Management (Kanban)</h2>
+            <KanbanBoard 
+                candidate={candidate} 
+                stages={stages}
+                onMove={handleStageChange} 
+                isUpdating={isUpdating}
+            />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
+                <div className="lg:col-span-2">
+                    <h2 className="text-2xl font-semibold mb-4">Notes & Activity</h2>
+                    <NotesSection 
+                        candidateId={candidate.id}
+                        initialNotes={initialNotes}
+                        teamMembers={mockTeamMembers}
                     />
-                    <button onClick={handleAddNote}>Add Note</button>
+                </div>
+                <div>
+                    <h2 className="text-2xl font-semibold mb-4">Status Timeline</h2>
+                    {timelineError && <p className="text-red-500">Error loading timeline.</p>}
+                    <CandidateTimeline timeline={timeline || []} />
                 </div>
             </div>
         </div>

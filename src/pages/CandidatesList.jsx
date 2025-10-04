@@ -1,65 +1,60 @@
+// src/pages/CandidatesList.jsx (UPDATED to use useFetch)
+
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-// Correct import name
 import { useVirtualizer } from '@tanstack/react-virtual'; 
+// 🛑 IMPORT useFetch hook
+import { useFetch } from '../hooks/useFetch'; 
 
-// --- DEBOUNCE HOOK ---
+// --- DEBOUNCE HOOK (Kept as is) ---
 const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]); 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]); 
 
-  return debouncedValue;
+  return debouncedValue;
 };
-// ---------------------
+// ------------------------------------
 
 function CandidatesList() {
-  const [candidates, setCandidates] = useState([]);
+  // 🛑 REPLACE local state with useFetch
   const [search, setSearch] = useState('');
-  
-  const debouncedSearch = useDebounce(search, 300); 
+  const debouncedSearch = useDebounce(search, 300); 
 
-  // 1. Ref for the scrollable container element
   const parentRef = useRef(null);
+  
+  // 🛑 1. CONSTRUCT the API URL based on the debounced search term
+  // The MSW handler for /api/candidates supports a 'search' query parameter.
+  const apiUrl = `/api/candidates?search=${encodeURIComponent(debouncedSearch)}`;
 
-  // Mock data
-  useEffect(() => {
-    const mock = Array.from({ length: 1000 }, (_, i) => ({
-      id: i + 1,
-      name: `Candidate ${i + 1}`,
-      email: `candidate${i + 1}@talentflow.com`,
-      stage: ['applied', 'screen', 'tech', 'offer', 'hired', 'rejected'][i % 6],
-    }));
-    setCandidates(mock);
-  }, []);
+  // 🛑 2. USE the useFetch hook
+  const { 
+    data: fetchedCandidates, 
+    isLoading, 
+    error, 
+    refetch 
+  } = useFetch(apiUrl);
+  
+  // The data used for the virtualizer is simply the fetched data (or an empty array if null/loading)
+  const candidates = fetchedCandidates || [];
+  
+  // 🛑 3. SIMPLIFY filtering. Since the API is already filtering by search,
+  // we just use the candidates array directly. No separate useMemo filter needed.
+  // We'll keep the list array named 'filtered' for continuity with the virtualizer logic.
+  const filtered = candidates;
 
-  // Filtered list
-  const filtered = useMemo(() => {
-    const lowerSearch = debouncedSearch.toLowerCase();
-    return candidates.filter(
-      c =>
-        c.name.toLowerCase().includes(lowerSearch) ||
-        c.email.toLowerCase().includes(lowerSearch)
-    );
-  }, [candidates, debouncedSearch]);
-
-
-  // 2. Initialize the virtualizer hook
+  // Initialize the virtualizer hook
   const rowVirtualizer = useVirtualizer({
-    // FIX 1: Use 'count' instead of 'size'
     count: filtered.length, 
     estimateSize: () => 48, 
     overscan: 5, 
-    // FIX 2: Pass the ref's current value directly to getScrollElement, 
-    // which is the most robust way to handle the scroll parent in modern versions.
-    getScrollElement: () => parentRef.current, 
-    // You can also use measureElement, but this should fix the immediate error.
+    getScrollElement: () => parentRef.current, 
   });
 
   return (
@@ -80,6 +75,11 @@ function CandidatesList() {
           <div className="flex-1">Email</div>
           <div className="w-32">Stage</div>
         </div>
+
+        {/* 🛑 Loading and Error States */}
+        {error && <div className="p-4 text-red-600">Error loading candidates: {error}</div>}
+        {isLoading && filtered.length === 0 && <div className="p-4 text-indigo-600">Loading candidates...</div>}
+        {!isLoading && filtered.length === 0 && !error && <div className="p-4 text-gray-500">No candidates found for "{debouncedSearch}".</div>}
 
         {/* 3. The scrollable container */}
         <div 
@@ -105,6 +105,8 @@ function CandidatesList() {
                 <div
                   key={candidate.id}
                   className="flex items-center border-b px-4 py-2 hover:bg-indigo-50 absolute w-full"
+                  // 🛑 Add onClick to link to candidate profile
+                  onClick={() => window.location.href = `/candidates/${candidate.id}`}
                   style={{
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
