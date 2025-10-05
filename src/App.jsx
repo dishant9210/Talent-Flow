@@ -1,6 +1,8 @@
 import React from 'react';
 import { Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
 import { Home, Briefcase, Users, FileText } from 'lucide-react'; // Corrected import
+import { initializeDataOnDemand } from './utils/productionInitializer';
+import { useEffect } from 'react';
 // Import all placeholder Page Components (No duplicates here)
 import JobsBoard from './pages/JobsBoard'; 
 import JobDetail from './pages/JobDetail';
@@ -56,7 +58,15 @@ const Layout = () => {
 
 // --- App Component with Routes ---
 function App() {
+
+   useEffect(() => {
+        // This function will check the environment and the DB count before running seedDatabase
+        initializeDataOnDemand(); 
+    }, []);
+
+
   return (
+
     // Note: BrowserRouter is imported and used in src/main.jsx (as per previous step)
     <Routes>
       {/* Layout wraps all main application content */}
