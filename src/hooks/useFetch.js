@@ -1,6 +1,6 @@
 // src/hooks/useFetch.js
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '../db'; // 🛑 NEW: Import the Dexie database instance
+import { db } from '../db'; // 🛑 Imports the Dexie database instance
 
 // Helper to extract query parameters from the URL string
 const getQueryParams = (url) => {

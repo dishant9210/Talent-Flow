@@ -1,4 +1,4 @@
-// src/pages/CandidateProfile.jsx (CRITICAL UPDATE)
+// src/pages/CandidateProfile.jsx
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
@@ -8,25 +8,24 @@ import { useStageUpdate } from '../hooks/useStageUpdate';
 // --- Component Imports (Assumed) ---
 import CandidateTimeline from '../components/CandidateTimeline';
 import NotesSection from '../components/NotesSection';
-import KanbanBoard from '../components/Board';
+// 🛑 FIX: Component aliasing (Board component is imported as Board)
+import Board from '../components/Board'; 
 
 const mockTeamMembers = ['John Doe', 'Jane Smith', 'Team Lead'];
 const stages = ['applied', 'screen', 'tech', 'offer', 'hired', 'rejected'];
 // ------------------------------------
 
 function CandidateProfile() {
-    const { jobId: urlId } = useParams(); // Get the string ID from the route
-    console.log('CandidateProfile: urlId =', urlId);
+    // 🛑 FIX: Access the parameter using its correct name from the router definition.
+    // It should be 'candidateId', but based on your router path 'candidates/:candidateId', 
+    // we use that. The URL ID will be used for fetching.
+    const { candidateId: urlId } = useParams(); 
 
-    // 🛑 FIX 1: Safely parse the ID and ensure it's a valid number > 0.
-    // If invalid, candidateId will be null, preventing the fetch calls below.
     const candidateId = useMemo(() => {
         const numId = parseInt(urlId);
         return (numId > 0 && !isNaN(numId)) ? numId : null;
     }, [urlId]);
 
-    // 🛑 FIX 2: Only construct the URL if candidateId is valid. 
-    // This prevents the fetch calls with '/api/candidates/NaN'.
     const candidateUrl = candidateId ? `/api/candidates/${candidateId}` : null;
     const timelineUrl = candidateId ? `/api/candidates/${candidateId}/timeline` : null;
 
@@ -36,7 +35,7 @@ function CandidateProfile() {
         isLoading: isCandidateLoading, 
         error: candidateError, 
         refetch: refetchCandidate 
-    } = useFetch(candidateUrl); // URL is null if ID is invalid
+    } = useFetch(candidateUrl);
     
     // 2. Fetch Timeline Data
     const { 
@@ -44,7 +43,7 @@ function CandidateProfile() {
         isLoading: isTimelineLoading, 
         error: timelineError, 
         refetch: refetchTimeline 
-    } = useFetch(timelineUrl); // URL is null if ID is invalid
+    } = useFetch(timelineUrl);
 
     // 3. Mutation Hook for Stage Change
     const { updateStage, isUpdating, updateError } = useStageUpdate();
@@ -54,7 +53,7 @@ function CandidateProfile() {
 
     // Handle Stage Change (Kanban Drag-and-Drop)
     const handleStageChange = async (newStage) => {
-        if (!candidateId) return; // Guard against null ID
+        if (!candidateId) return; 
 
         const success = await updateStage(candidateId, newStage);
         
@@ -94,7 +93,7 @@ function CandidateProfile() {
 
 
             <h2 className="text-2xl font-semibold mt-8 mb-4">Stage Management (Kanban)</h2>
-            <KanbanBoard 
+            <Board // 🛑 Using the correct component name based on file export
                 candidate={candidate} 
                 stages={stages}
                 onMove={handleStageChange} 
