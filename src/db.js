@@ -16,8 +16,7 @@ db.version(1).stores({
   assessments: '++id, jobId, candidateId',
   
   // Timeline schema (Updated to include author index for notes)
-//   timeline: '++id, candidateId, type, timestamp, author', 
-  timeline: '++id, candidateId, [candidateId+type], type, timestamp, author',
+  timeline: '++id, candidateId, [candidateId+type], type, timestamp, author',
 });
 
 // Optional: Error handling for opening the database
