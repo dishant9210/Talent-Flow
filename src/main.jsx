@@ -55,10 +55,10 @@ async function prepareApp() {
 prepareApp().then(() => {
     console.log("MSW/DB: Preparation complete. Rendering application.");
     ReactDOM.createRoot(document.getElementById('root')).render(
-        <React.StrictMode>
+        <>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}> 
                 <App />
             </BrowserRouter>
-        </React.StrictMode>,
+        </>,
     );
 });

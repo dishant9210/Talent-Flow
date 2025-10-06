@@ -1,8 +1,9 @@
-// src/pages/CandidatesList.jsx (UPDATED to use useFetch)
+// src/pages/CandidatesList.jsx (Final Corrected Code)
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'; 
+import { useVirtualizer } from '@tanstack/react-virtual';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual'; 
-// 🛑 IMPORT useFetch hook
+// import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+// import { useVirtualizer } from '@tanstack/react-virtual'; 
 import { useFetch } from '../hooks/useFetch'; 
 
 // --- DEBOUNCE HOOK (Kept as is) ---
@@ -13,9 +14,7 @@ const useDebounce = (value, delay) => {
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
+    return () => clearTimeout(handler);
   }, [value, delay]); 
 
   return debouncedValue;
@@ -23,17 +22,13 @@ const useDebounce = (value, delay) => {
 // ------------------------------------
 
 function CandidatesList() {
-  // 🛑 REPLACE local state with useFetch
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300); 
 
   const parentRef = useRef(null);
   
-  // 🛑 1. CONSTRUCT the API URL based on the debounced search term
-  // The MSW handler for /api/candidates supports a 'search' query parameter.
   const apiUrl = `/api/candidates?search=${encodeURIComponent(debouncedSearch)}`;
 
-  // 🛑 2. USE the useFetch hook
   const { 
     data: fetchedCandidates, 
     isLoading, 
@@ -41,18 +36,20 @@ function CandidatesList() {
     refetch 
   } = useFetch(apiUrl);
   
-  // The data used for the virtualizer is simply the fetched data (or an empty array if null/loading)
-  const candidates = fetchedCandidates || [];
+  // 🛑 FIX: Safely extract data. If it's an array (from /candidates), use it directly.
+  const candidates = (fetchedCandidates && fetchedCandidates.data) 
+    ? fetchedCandidates.data // Use structure from /jobs endpoint
+    : (Array.isArray(fetchedCandidates) ? fetchedCandidates : []); // Use array directly from /candidates endpoint
   
-  // 🛑 3. SIMPLIFY filtering. Since the API is already filtering by search,
-  // we just use the candidates array directly. No separate useMemo filter needed.
-  // We'll keep the list array named 'filtered' for continuity with the virtualizer logic.
-  const filtered = candidates;
+  const filtered = candidates; 
+  // NOTE: Total count is in X-Total-Count header, but we'll use the array length for the view
+  const totalDisplayCount = filtered.length; 
+
 
   // Initialize the virtualizer hook
   const rowVirtualizer = useVirtualizer({
     count: filtered.length, 
-    estimateSize: () => 48, 
+    estimateSize: useCallback(() => 48, []),
     overscan: 5, 
     getScrollElement: () => parentRef.current, 
   });
@@ -76,9 +73,9 @@ function CandidatesList() {
           <div className="w-32">Stage</div>
         </div>
 
-        {/* 🛑 Loading and Error States */}
+        {/* Loading and Error States */}
         {error && <div className="p-4 text-red-600">Error loading candidates: {error}</div>}
-        {isLoading && filtered.length === 0 && <div className="p-4 text-indigo-600">Loading candidates...</div>}
+        {isLoading && filtered.length === 0 && <div className="text-center p-4 text-indigo-600">Loading candidates...</div>}
         {!isLoading && filtered.length === 0 && !error && <div className="p-4 text-gray-500">No candidates found for "{debouncedSearch}".</div>}
 
         {/* 3. The scrollable container */}
@@ -105,7 +102,6 @@ function CandidatesList() {
                 <div
                   key={candidate.id}
                   className="flex items-center border-b px-4 py-2 hover:bg-indigo-50 absolute w-full"
-                  // 🛑 Add onClick to link to candidate profile
                   onClick={() => window.location.href = `/candidates/${candidate.id}`}
                   style={{
                     height: `${virtualRow.size}px`,
