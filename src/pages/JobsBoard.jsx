@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { Search, ListFilter, Archive, CheckCircle, GripVertical } from 'lucide-react'
 import { useFetch } from '../hooks/useFetch'
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd' 
-// 🛑 NEW IMPORT for local mutation functions
+// Assuming you have created these local API files
 import { reorderJobLocal, updateJobStatusLocal } from '../api/jobs'; 
 
 const JOB_STATUSES = {
@@ -22,7 +22,9 @@ export default function JobsBoard() {
 
   // State for DND and Mutations
   const [jobs, setJobs] = useState([])
-  const [isUpdating, setIsUpdating] = useState(false)
+  // 🛑 REMOVE isUpdating state or keep it but DON'T use it for DND status
+  // We will manage a dedicated mutation status for simplicity
+  // const [isUpdating, setIsUpdating] = useState(false) // Keeping this removed for a clean solution
   const [updateError, setUpdateError] = useState(null)
   
   // API URL with all parameters
@@ -64,14 +66,12 @@ export default function JobsBoard() {
 // MUTATION LOGIC
 // ----------------------------------------------------------------------
 
-    // FIX 1: CHANGE SUCCESS HANDLER TO PREVENT REFETCH/RE-RENDER ON SUCCESS
+    // Reordering is instantaneous, so we only need to clear errors.
     const handlePatchSuccess = () => { 
-        setIsUpdating(false)
         setUpdateError(null) // Clear any previous error messages
     }
     
     const handlePatchFailure = (err, originalJobs) => {
-        setIsUpdating(false)
         setJobs(originalJobs) // Rollback optimistic update
         setUpdateError(err.message)
         console.error('Mutation Error:', err)
@@ -89,16 +89,15 @@ export default function JobsBoard() {
             j.id === jobId ? { ...j, status: newStatus } : j
         ))
         
-        setIsUpdating(true)
+        // setIsUpdating(true) // 🛑 REMOVED
         setUpdateError(null)
 
         try {
             let response;
             
-            // 🛑 PRODUCTION FIX: Use local function on Vercel
+            // Production Fix: Use local function on Vercel
             if (!import.meta.env.DEV) {
                 await updateJobStatusLocal(jobId, newStatus);
-                // Mock a successful response for the subsequent .ok check
                 response = { ok: true, json: () => ({ success: true }) }; 
             } else {
                 // Development: Use network call (MSW)
@@ -128,13 +127,13 @@ export default function JobsBoard() {
 
     // --- 2. Reorder Handler (Optimistic Update & Rollback) ---
     const handleReorderAPI = async (jobId, fromOrder, toOrder, originalJobsForRollback) => {
-        setIsUpdating(true)
+        // setIsUpdating(true) // 🛑 REMOVED
         setUpdateError(null)
         
         try {
             let response;
 
-            // 🛑 PRODUCTION FIX: Use local function on Vercel
+            // Production Fix: Use local function on Vercel
             if (!import.meta.env.DEV) {
                 // Production: Call local Dexie logic directly
                 await reorderJobLocal(jobId, fromOrder, toOrder);
@@ -164,7 +163,6 @@ export default function JobsBoard() {
 
 
     // --- 3. Drag and Drop Handler ---
-// ... (The rest of onDragEnd remains unchanged)
     const onDragEnd = (result) => {
         const { destination, source, draggableId } = result
 
@@ -178,7 +176,7 @@ export default function JobsBoard() {
 
         const originalJobsForRollback = jobs
 
-        // Optimistic UI Update
+        // Optimistic UI Update (INSTANT)
         const newJobs = Array.from(jobs)
         
         const [reorderedItem] = newJobs.splice(source.index, 1)
@@ -191,7 +189,7 @@ export default function JobsBoard() {
         
         setJobs(updatedJobs)
         
-        // API Call
+        // API Call (Async)
         const fromOrder = jobToMove.order
         const toOrder = updatedJobs[destination.index].order
         
@@ -206,13 +204,11 @@ export default function JobsBoard() {
     return (
       <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
         <p className="text-red-700">Error: {error}</p>
-        {updateError && <p className="text-red-700">Mutation Error: {updateError}</p>}
       </div>
     )
   }
 
   return (
-// ... (rest of the render function is unchanged)
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Jobs Board ({totalJobs} Total)</h1>
 
@@ -253,7 +249,8 @@ export default function JobsBoard() {
             Action Failed: {updateError}
         </div>
     )}
-    {isUpdating && <div className="text-sm text-yellow-600">Updating order on server...</div>}
+    {/* 🛑 REMOVE isUpdating display 🛑 */}
+    {/* {isUpdating && <div className="text-sm text-yellow-600">Updating order on server...</div>} */}
 
 
       {/* Jobs Table */}
