@@ -1,6 +1,8 @@
 // src/hooks/useStageUpdate.js
 
 import { useState } from 'react';
+// 🛑 NEW IMPORT: Assume the local mutation function is available
+import { updateCandidateStageLocal } from '../api/candidates'; 
 
 /**
  * Custom hook to handle updating a candidate's stage (PATCH /api/candidates/:id).
@@ -14,13 +16,24 @@ export function useStageUpdate() {
     setIsUpdating(true);
     setUpdateError(null);
     try {
-      const response = await fetch(`/api/candidates/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ stage: newStage }),
-      });
+      let response;
+      
+      // 🛑 PRODUCTION FIX: Use local function on Vercel
+      if (!import.meta.env.DEV) {
+          await updateCandidateStageLocal(id, newStage);
+          // Mock a successful response
+          response = { ok: true, json: () => ({ success: true }) };
+      } else {
+          // Development: Use network call (MSW)
+          response = await fetch(`/api/candidates/${id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ stage: newStage }),
+          });
+      }
+
 
       if (!response.ok) {
         // Attempt to read the specific error message from the MSW handler

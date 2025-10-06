@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom'
 import { Search, ListFilter, Archive, CheckCircle, GripVertical } from 'lucide-react'
 import { useFetch } from '../hooks/useFetch'
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd' 
+// 🛑 NEW IMPORT for local mutation functions
+import { reorderJobLocal, updateJobStatusLocal } from '../api/jobs'; 
 
 const JOB_STATUSES = {
   active: { label: 'Active', color: 'bg-green-100 text-green-700' },
@@ -62,12 +64,10 @@ export default function JobsBoard() {
 // MUTATION LOGIC
 // ----------------------------------------------------------------------
 
-    // 🛑 FIX 1: CHANGE SUCCESS HANDLER TO PREVENT REFETCH/RE-RENDER ON SUCCESS 🛑
+    // FIX 1: CHANGE SUCCESS HANDLER TO PREVENT REFETCH/RE-RENDER ON SUCCESS
     const handlePatchSuccess = () => { 
         setIsUpdating(false)
         setUpdateError(null) // Clear any previous error messages
-        // Do NOT call refetch() here for reorder, as the UI is already updated optimistically.
-        // For archive/unarchive, we will still call refetch *if* filtering by status is active.
     }
     
     const handlePatchFailure = (err, originalJobs) => {
@@ -84,6 +84,7 @@ export default function JobsBoard() {
         
         const originalJobs = jobs
         
+        // Optimistic UI Update
         setJobs(jobs.map(j => 
             j.id === jobId ? { ...j, status: newStatus } : j
         ))
@@ -92,19 +93,28 @@ export default function JobsBoard() {
         setUpdateError(null)
 
         try {
-            const response = await fetch(`/api/jobs/${jobId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
-            })
-
+            let response;
+            
+            // 🛑 PRODUCTION FIX: Use local function on Vercel
+            if (!import.meta.env.DEV) {
+                await updateJobStatusLocal(jobId, newStatus);
+                // Mock a successful response for the subsequent .ok check
+                response = { ok: true, json: () => ({ success: true }) }; 
+            } else {
+                // Development: Use network call (MSW)
+                response = await fetch(`/api/jobs/${jobId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus }),
+                })
+            }
+            
             if (!response.ok) {
                  const errorData = await response.json().catch(() => ({}))
                  throw new Error(errorData.error || `Status update failed (${response.status})`)
             }
             
-            // 🛑 Archive Success: We MUST refetch if the current filter hides the job.
-            // Example: If status='active' and we archive it, it must disappear.
+            // Archive Success: We MUST refetch if the current filter hides the job.
             if (status !== 'all' && newStatus !== status) {
                  refetch() // Triggers a new fetch that removes the job from the current view
             } else {
@@ -122,18 +132,28 @@ export default function JobsBoard() {
         setUpdateError(null)
         
         try {
-            const response = await fetch(`/api/jobs/${jobId}/reorder`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fromOrder, toOrder }),
-            })
+            let response;
+
+            // 🛑 PRODUCTION FIX: Use local function on Vercel
+            if (!import.meta.env.DEV) {
+                // Production: Call local Dexie logic directly
+                await reorderJobLocal(jobId, fromOrder, toOrder);
+                response = { ok: true, json: () => ({ success: true }) };
+            } else {
+                // Development: Use network call (MSW)
+                response = await fetch(`/api/jobs/${jobId}/reorder`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fromOrder, toOrder }),
+                })
+            }
             
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}))
                 throw new Error(errorData.error || `Reorder failed (${response.status})`)
             }
             
-            // 🛑 Success: Just clear the status. The UI already has the final order.
+            // Success: Just clear the status. The UI already has the final order.
             handlePatchSuccess()
 
         } catch (err) {
@@ -144,6 +164,7 @@ export default function JobsBoard() {
 
 
     // --- 3. Drag and Drop Handler ---
+// ... (The rest of onDragEnd remains unchanged)
     const onDragEnd = (result) => {
         const { destination, source, draggableId } = result
 
@@ -185,11 +206,13 @@ export default function JobsBoard() {
     return (
       <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
         <p className="text-red-700">Error: {error}</p>
+        {updateError && <p className="text-red-700">Mutation Error: {updateError}</p>}
       </div>
     )
   }
 
   return (
+// ... (rest of the render function is unchanged)
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Jobs Board ({totalJobs} Total)</h1>
 
@@ -237,7 +260,7 @@ export default function JobsBoard() {
       {isLoading ? (
         <div className="text-center p-12">Loading...</div>
       ) : (
-        // 🛑 FIX 2: WRAP THE DROPPABLE CONTENT IN A TBODY 🛑
+        // FIX 2: WRAP THE DROPPABLE CONTENT IN A TBODY
         <DragDropContext onDragEnd={onDragEnd}>
             <table className="min-w-full divide-y divide-gray-200 bg-white rounded-xl shadow overflow-hidden">
                 <thead className="bg-gray-50">
@@ -285,7 +308,7 @@ export default function JobsBoard() {
                                             >
                                                 <td 
                                                     className="px-6 py-4 w-12"
-                                                    {...provided.dragHandleProps} // 🛑 FIX 3: Apply handle to the TD
+                                                    {...provided.dragHandleProps} // FIX 3: Apply handle to the TD
                                                 >
                                                     <GripVertical 
                                                         className="text-gray-400 cursor-grab hover:text-gray-600"
