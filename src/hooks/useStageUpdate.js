@@ -1,11 +1,11 @@
 // src/hooks/useStageUpdate.js
 
 import { useState } from 'react';
-// 🛑 NEW IMPORT: Assume the local mutation function is available
-import { updateCandidateStageLocal } from '../api/candidates'; 
+import { db } from '../db'; // 🛑 ADD DB IMPORT FOR PRODUCTION LOGIC
 
 /**
  * Custom hook to handle updating a candidate's stage (PATCH /api/candidates/:id).
+ * Now supports production local DB updates and removes the visible "isUpdating" status for smoother DND.
  * @returns {{ updateStage: (id: number, newStage: string) => Promise<boolean>, isUpdating: boolean, updateError: string | null }}
  */
 export function useStageUpdate() {
@@ -13,18 +13,31 @@ export function useStageUpdate() {
   const [updateError, setUpdateError] = useState(null);
 
   const updateStage = async (id, newStage) => {
-    setIsUpdating(true);
+    // 🛑 REMOVED: setIsUpdating(true) 
     setUpdateError(null);
+    
     try {
       let response;
-      
-      // 🛑 PRODUCTION FIX: Use local function on Vercel
+
+      // --- Production/Local Dexie Mutation (Fixes 405 error on Vercel) ---
       if (!import.meta.env.DEV) {
-          await updateCandidateStageLocal(id, newStage);
-          // Mock a successful response
-          response = { ok: true, json: () => ({ success: true }) };
+          const numId = parseInt(id);
+          
+          await db.candidates.update(numId, { stage: newStage });
+          
+          // Log timeline change (copied from mock handler)
+          await db.timeline.add({
+              candidateId: numId,
+              type: 'stage_change',
+              details: `Moved to ${newStage}`,
+              timestamp: new Date().toISOString(),
+          });
+          
+          // Mock a successful response for error handling consistency
+          response = { ok: true, json: async () => ({ success: true }) };
+          
       } else {
-          // Development: Use network call (MSW)
+          // --- Development/Network MSW Mutation ---
           response = await fetch(`/api/candidates/${id}`, {
             method: 'PATCH',
             headers: {
@@ -34,18 +47,17 @@ export function useStageUpdate() {
           });
       }
 
-
       if (!response.ok) {
-        // Attempt to read the specific error message from the MSW handler
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed with status ${response.status}`);
       }
       
-      setIsUpdating(false);
+      // 🛑 REMOVED: setIsUpdating(false) in success case 🛑
       return true; // Success
+      
     } catch (err) {
       setUpdateError(err.message);
-      setIsUpdating(false);
+      setIsUpdating(false); 
       return false; // Failure
     }
   };

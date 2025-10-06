@@ -4,11 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch'; 
 import { useStageUpdate } from '../hooks/useStageUpdate'; 
-
-// --- Component Imports (Assumed) ---
 import CandidateTimeline from '../components/CandidateTimeline';
 import NotesSection from '../components/NotesSection';
-// 🛑 FIX: Component aliasing (Board component is imported as Board)
 import Board from '../components/Board'; 
 
 const mockTeamMembers = ['John Doe', 'Jane Smith', 'Team Lead'];
@@ -16,9 +13,6 @@ const stages = ['applied', 'screen', 'tech', 'offer', 'hired', 'rejected'];
 // ------------------------------------
 
 function CandidateProfile() {
-    // 🛑 FIX: Access the parameter using its correct name from the router definition.
-    // It should be 'candidateId', but based on your router path 'candidates/:candidateId', 
-    // we use that. The URL ID will be used for fetching.
     const { candidateId: urlId } = useParams(); 
 
     const candidateId = useMemo(() => {
@@ -46,6 +40,7 @@ function CandidateProfile() {
     } = useFetch(timelineUrl);
 
     // 3. Mutation Hook for Stage Change
+    // isUpdating will be false and should not be used for DND status display
     const { updateStage, isUpdating, updateError } = useStageUpdate();
 
     // Memoize the initial notes
@@ -55,12 +50,16 @@ function CandidateProfile() {
     const handleStageChange = async (newStage) => {
         if (!candidateId) return; 
 
+        // We rely on optimistic update here (Board component already moved the card)
         const success = await updateStage(candidateId, newStage);
         
         if (success) {
+            // Refetch data to ensure the new state and timeline entry are reflected
             refetchCandidate();
             refetchTimeline();
         } else {
+            // The proper optimistic rollback would be to manually revert the stage state here.
+            // For now, we rely on refetch to sync the UI back if the mutation fails.
             alert(`Failed to update stage: ${updateError}`);
             refetchCandidate(); 
         }
@@ -88,16 +87,17 @@ function CandidateProfile() {
             <h1 className="text-4xl font-extrabold text-gray-800 mb-2">{candidate.name}</h1>
             <p className="text-lg text-indigo-600 mb-6">Current Stage: {candidate.stage.toUpperCase()}</p>
             
-            {isUpdating && <div className="text-yellow-600 mb-4">Updating stage...</div>}
+            {/* 🛑 REMOVED isUpdating display for smooth transition */}
+            {/* {isUpdating && <div className="text-yellow-600 mb-4">Updating stage...</div>} */}
             {updateError && <div className="text-red-600 mb-4">Update Error: {updateError}</div>}
 
 
             <h2 className="text-2xl font-semibold mt-8 mb-4">Stage Management (Kanban)</h2>
-            <Board // 🛑 Using the correct component name based on file export
+            <Board 
                 candidate={candidate} 
                 stages={stages}
                 onMove={handleStageChange} 
-                isUpdating={isUpdating}
+                // Removed isUpdating prop (if Board component used it)
             />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
